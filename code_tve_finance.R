@@ -1,3 +1,11 @@
+#------------------------------------------
+# Projet de théorie des valeurs extrêmes
+# Données financières
+
+# Auteurs : Tom Brault & Alexandre Maghames 
+#------------------------------------------
+
+
 # Load necessary libraries
 library(quantmod)
 library(evd)
@@ -5,11 +13,14 @@ library(tseries)
 # Clear the environment
 rm(list=ls())
 
+# define seed 
+set.seed(2002)
+
 # Define the ticker symbol
 start_date <- "2007-01-01"
 end_date <- "2023-12-31"
 
-# import the data 
+# import data 
 ticker <- "MC.PA"
 getSymbols(ticker, src = "yahoo",from=start_date,to=end_date)
 
@@ -35,15 +46,6 @@ ts.plot(serie)
 plot(seq_along(log_returns), log_returns, type = "l", col = "darkblue",
      xlab = "Time Index", ylab = "Negative Log Returns")
 abline(h=0.03,col="red") # seuil choisi
-res <-numeric(10)
-seuil_grid <- seq(from=0.02,to=0.03,length=10)
-
-for(s_index in seq_along(seuil_grid)){
-  seuil <- seuil_grid[s_index]
-  res[s_index] <- sum(log_returns> seuil)
-}
-sum(log_returns>0.03)
-
 
 
 par(mfrow=c(1,2))
@@ -54,13 +56,14 @@ adf.test(log_returns) # faible p-val (on ne peux pas accepter H0 la serie est st
 
 # fitted by GPD 
 par(mfrow=c(1,1))
-# main="Mean Residual Life Plot for Negative Log-Returns"
+# mrlplot: Empirical Mean Residual Life Plot
 mrlplot(log_returns, main="",col="darkblue",ylim=c(0,0.06),xlim=c(-0.05,0.085))
 abline(v=0.02,col="red")
 abline(v=0.06,col="red")
 grid()
+
 par(mfrow=c(1,1))
-?tcplot
+# tcplot: Threshold Choice Plot
 tcplot(log_returns, c(0.02,0.06),which=1)
 abline(v=0.02,col="red")
 abline(v=0.035,col="red")
@@ -70,8 +73,22 @@ abline(v=0.02,col="red")
 abline(v=0.03,col="red")
 grid()
 
+res <-numeric(10)
+seuil_grid <- seq(from=0.02,to=0.03,length=10)
+
+for(s_index in seq_along(seuil_grid)){
+  seuil <- seuil_grid[s_index]
+  res[s_index] <- sum(log_returns> seuil)
+}
+res
+sum(log_returns> 0.03)
+
+# GPD fit with a threshold of 0.03
 # 250 (nombres de jours ouvrés dans une année)
 fitted <- fpot(log_returns,0.03,npp=250)
+# npp = 250: on raisonne en années, npp = 22: on raisonne en mois
+# 250: nb de jours ouvrés dans une année, 22: nb de jours ouvrés dans un mois
+# npp = 22 : nb de jours ouvrés moyen par mois
 fitted
 confint(fitted)
 
@@ -79,6 +96,7 @@ par(mfrow=c(2,2))
 plot(fitted)
 
 par(mfrow=c(1,1))
+plot(fitted,which=1)
 plot(fitted,which=4,xlab="Return Period (in years)")
 
 prof <- profile(fitted)
@@ -87,23 +105,36 @@ par(mfrow=c(1,2))
 plot(prof)
 confint(prof)
 
-
+# with shape = 0
 fitted_0 <- fpot(log_returns,0.045,npp=250,shape=0)
 fitted_0
 confint(fitted_0)
 par(mfrow=c(2,2))
 plot(fitted_0)
 
-anova(fitted,fitted_0)
+test_dev <- anova(fitted,fitted_0)
 # on ne peut pas rejetter l'hypothèse nulle. 
 # xi = 0 
 
 
+
+S_stat <- test_dev$Deviance[2] - test_dev$Deviance[1]
+qchisq(p=0.95, df=1) # loi à H_0
+S_stat > qchisq(p=0.95, df=1)
+# False : on ne peut pas rejeter H_0, i.e. on prend shape = 0
+
+
+
+
+
+
+
+#######################################################################
 # fitted by GEV 
 data <- get(ticker)
 close_prices <- data[, "MC.PA.Close"]
 df <- data.frame(Date = index(close_prices), Close = coredata(close_prices))
-df$log_ret <- c(0,diff(log(df$MC.PA.Close)))
+df$log_ret <- -c(0,diff(log(df$MC.PA.Close)))
 df$Year <- format(df$Date, "%Y")
 df$Year_Month <- format(df$Date,"%Y-%m")
 
@@ -144,12 +175,13 @@ confint(prof_gev2)
 
 fitted_gev_year_month$estimate
 qgev(1-1/20,0.02730844,0.01145445,0.16412963)
-qgev(1-1/240,0.02730844,0.01145445,0.16412963)
+qgev(1-1/120,0.02730844,0.01145445,0.16412963)
 
 
 
-
-
+#-------------------------------------------------------------------------------
+# Comparison of GEV and GPD methods
+#-------------------------------------------------------------------------------
 
 # Represent of exceedances depending on a certain threshold
 threshold = 0.093
