@@ -1,6 +1,5 @@
-# 3a-tve-project
-# Extreme Value Theory Project
-##### Financial Data
+# 3A - Ensai 
+# Extreme Value Theory Project on Financial Data
 
 
 ## Contributors
