@@ -45,7 +45,16 @@ ts.plot(serie)
 
 plot(seq_along(log_returns), log_returns, type = "l", col = "darkblue",
      xlab = "Time Index", ylab = "Negative Log Returns")
-abline(h=0.03,col="red") # seuil choisi
+abline(h=0.03,col="darkred") # exemple de seuil choisi 
+
+col_sup_seuil = ifelse(log_returns > 0.03, "darkred", "darkgray")
+
+for (i in 1:(length(log_returns) - 1)) {
+  lines(c(i, i + 1), 
+        log_returns[i:(i + 1)], 
+        col = col_sup_seuil[i])
+}
+sum(col_sup_seuil=="darkred") #191 valeurs sup au seuil
 
 
 par(mfrow=c(1,2))
@@ -54,23 +63,25 @@ pacf(log_returns)
 adf.test(log_returns) # faible p-val (on ne peux pas accepter H0 la serie est stationnaire)
 
 
+#######################################################################
 # fitted by GPD 
+#######################################################################
 par(mfrow=c(1,1))
 # mrlplot: Empirical Mean Residual Life Plot
 mrlplot(log_returns, main="",col="darkblue",ylim=c(0,0.06),xlim=c(-0.05,0.085))
-abline(v=0.02,col="red")
-abline(v=0.06,col="red")
+abline(v=0.02,col="darkred")
+abline(v=0.06,col="darkred")
 grid()
 
 par(mfrow=c(1,1))
 # tcplot: Threshold Choice Plot
 tcplot(log_returns, c(0.02,0.06),which=1)
-abline(v=0.02,col="red")
-abline(v=0.035,col="red")
+abline(v=0.02,col="darkred")
+abline(v=0.035,col="darkred")
 grid()
 tcplot(log_returns, c(0.02,0.06),which=2)
-abline(v=0.02,col="red")
-abline(v=0.03,col="red")
+abline(v=0.02,col="darkred")
+abline(v=0.03,col="darkred")
 grid()
 
 res <-numeric(10)
@@ -80,8 +91,9 @@ for(s_index in seq_along(seuil_grid)){
   seuil <- seuil_grid[s_index]
   res[s_index] <- sum(log_returns> seuil)
 }
-res
+res # num de valeurs observé plus grandes pour chacun des seuil choisi dans seuil_grid
 sum(log_returns> 0.03)
+
 
 # GPD fit with a threshold of 0.03
 # 250 (nombres de jours ouvrés dans une année)
@@ -116,21 +128,68 @@ test_dev <- anova(fitted,fitted_0)
 # on ne peut pas rejetter l'hypothèse nulle. 
 # xi = 0 
 
-
-
 S_stat <- test_dev$Deviance[2] - test_dev$Deviance[1]
 qchisq(p=0.95, df=1) # loi à H_0
-S_stat > qchisq(p=0.95, df=1)
-# False : on ne peut pas rejeter H_0, i.e. on prend shape = 0
+S_stat > qchisq(p = 0.95,df = 1)
+# On retrouve la stat de test. on ne peut pas rejeter H_0, i.e. on prend shape = 0
+p_val <- 1 - pchisq(S_stat,1) # on retrouve la p-valeur
 
 
+par(mfrow=c(1,1))
+rl(fitted_0)
+
+# Value of loss corresponding to a period of return of 20 years (=250*20=5000 working days approximately).
+inverse_function_gpd = function(x,tau){
+  return(-tau * log(1-x))}
+
+return_level_gpd = function(T,tau){
+  u = 0.03
+  lambda = length(fitted_0$exceedances)/length(log_returns) # proportion de dépassements du seuil (p(u) dans le cours)
+  return(u+inverse_function_gpd(1-1/(T*lambda),tau))
+}
+
+# T: période de retour (en jours ouvrés)
+return_level_gpd(T = 5000, tau = as.numeric(fitted_0$estimate["scale"]))
+# Return level corresponding to a period of return of 20 years: 0.102
+# with the GEV, we found a return level of 0.129 approximately
+
+# Value of loss corresponding to a period of return of 10 years (=250*10=2500 working days approximately).
+return_level_gpd(T = 2500, tau = as.numeric(fitted_0$estimate["scale"]))
+# Return level corresponding to a period of return of 10 years: 0.093
+# with the GEV, we found a return level of 0.111 approximately
+
+# Indices des dépassements du niveau de retour 0.093
+for (i in 1:length(log_returns)) {
+  if (log_returns[i] > 0.102) {
+    cat("Index:", i, "Value:", log_returns[i], "\n")
+  }
+}
+# 3 dépassements de ce seuil en moins de 20 ans avec une GPD. Notons que 
+# ces dépassements sont assez resserrés entre eux (voir graphique tout en bas du code)
 
 
+# Period of return corresponding to a certain return level
+return_period_gpd <- function(y_p,tau){
+  # y_p: return, tau: modified scale parameter
+  u = 0.03 # u: threshold (fixed in the model)
+  lambda = length(fitted_0$exceedances)/length(log_returns) # proportion de dépassements du seuil (p(u) dans le cours)
+  return(1/lambda * exp((y_p-u)/tau))
+}
+
+# Period of return corresponding to a return level of 0.111 for the GPD
+# Value corresponding to a return period of 10 years in the case of a GEV
+return_period_gpd(y_p = 0.111, tau = as.numeric(fitted_0$estimate["scale"]))
+# The value is given in days here: 38241.62
+# Value in years:
+return_period_gpd(y_p = 0.111, tau = as.numeric(fitted_0$estimate["scale"]))/250
+# Return level: 1.97 year (almost 2 years)
 
 
 
 #######################################################################
 # fitted by GEV 
+#######################################################################
+
 data <- get(ticker)
 close_prices <- data[, "MC.PA.Close"]
 df <- data.frame(Date = index(close_prices), Close = coredata(close_prices))
@@ -176,7 +235,7 @@ confint(prof_gev2)
 fitted_gev_year_month$estimate
 qgev(1-1/20,0.02730844,0.01145445,0.16412963)
 qgev(1-1/120,0.02730844,0.01145445,0.16412963)
-
+qgev(1-1/240,0.02730844,0.01145445,0.16412963)
 
 
 #-------------------------------------------------------------------------------
@@ -187,6 +246,7 @@ qgev(1-1/120,0.02730844,0.01145445,0.16412963)
 threshold = 0.093
 colors_exceedances = ifelse(df$log_ret > threshold, "red", "darkgray")
 
+par(mfrow=c(1,1))
 # Create the plot without lines first
 plot(df$log_ret, 
      type = "n", # Create an empty plot
@@ -207,7 +267,4 @@ text(x = length(df$log_ret) * 0.9,  # Adjust x position to place near the end
      labels = paste0("Threshold: ", threshold),
      col = "darkred", cex = 0.8)    # cex adjusts text size
 
-plot(df$log_ret,type="l")
-
 which(colors_exceedances=="red")
-
