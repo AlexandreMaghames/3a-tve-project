@@ -124,7 +124,7 @@ par(mfrow=c(2,2))
 plot(fitted_0)
 
 test_dev <- anova(fitted,fitted_0)
-# on ne peut pas rejetter l'hypothèse nulle. 
+#we cannot reject the null hypothesis
 # xi = 0 
 
 S_stat <- test_dev$Deviance[2] - test_dev$Deviance[1]
