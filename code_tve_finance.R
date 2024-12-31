@@ -1,10 +1,9 @@
 #------------------------------------------
-# Projet de théorie des valeurs extrêmes
-# Données financières
+# Extreme Value Theory Project
+# Financial Data
 
-# Auteurs : Tom Brault & Alexandre Maghames 
+# Authors: Tom Brault & Alexandre Maghames
 #------------------------------------------
-
 
 # Load necessary libraries
 library(quantmod)
@@ -37,7 +36,7 @@ plot(MC.PA$MC.PA.Close, ylab="Closing Prices",xlab="Time", col = "darkblue",main
 
 data_df <- as.data.frame(MC.PA)
 
-# On va s'interesser aux prix de fermeture (Close)
+# We will focus on closing prices (Close)
 serie <- data_df$MC.PA.Close
 log_returns <- -diff(log(serie))
 par(mfrow=c(1,1))
@@ -45,7 +44,7 @@ ts.plot(serie)
 
 plot(seq_along(log_returns), log_returns, type = "l", col = "darkblue",
      xlab = "Time Index", ylab = "Negative Log Returns")
-abline(h=0.03,col="darkred") # exemple de seuil choisi 
+abline(h=0.03,col="darkred") ## Example of chosen threshold 
 
 col_sup_seuil = ifelse(log_returns > 0.03, "darkred", "darkgray")
 
@@ -54,13 +53,13 @@ for (i in 1:(length(log_returns) - 1)) {
         log_returns[i:(i + 1)], 
         col = col_sup_seuil[i])
 }
-sum(col_sup_seuil=="darkred") #191 valeurs sup au seuil
+sum(col_sup_seuil=="darkred") # 191 values above the threshold
 
 
 par(mfrow=c(1,2))
 acf(log_returns)
 pacf(log_returns)
-adf.test(log_returns) # faible p-val (on ne peux pas accepter H0 la serie est stationnaire)
+adf.test(log_returns) # Low p-value (we cannot accept H0, the series is stationary)
 
 
 #######################################################################
@@ -91,16 +90,16 @@ for(s_index in seq_along(seuil_grid)){
   seuil <- seuil_grid[s_index]
   res[s_index] <- sum(log_returns> seuil)
 }
-res # num de valeurs observé plus grandes pour chacun des seuil choisi dans seuil_grid
+res # Number of observed values greater than each chosen threshold in seuil_grid
 sum(log_returns> 0.03)
 
+npp <- 250
 
 # GPD fit with a threshold of 0.03
-# 250 (nombres de jours ouvrés dans une année)
-fitted <- fpot(log_returns,0.03,npp=250)
-# npp = 250: on raisonne en années, npp = 22: on raisonne en mois
-# 250: nb de jours ouvrés dans une année, 22: nb de jours ouvrés dans un mois
-# npp = 22 : nb de jours ouvrés moyen par mois
+# 250 (number of business days in a year)
+fitted <- fpot(log_returns,0.03,npp=npp)
+# npp = 250: reasoning in years, npp = 22: reasoning in months
+# 250: number of business days in a year, 22: average number of business days in a month
 fitted
 confint(fitted)
 
@@ -118,7 +117,7 @@ plot(prof)
 confint(prof)
 
 # with shape = 0
-fitted_0 <- fpot(log_returns,0.045,npp=250,shape=0)
+fitted_0 <- fpot(log_returns,0.03,npp=npp,shape=0)
 fitted_0
 confint(fitted_0)
 par(mfrow=c(2,2))
@@ -131,8 +130,8 @@ test_dev <- anova(fitted,fitted_0)
 S_stat <- test_dev$Deviance[2] - test_dev$Deviance[1]
 qchisq(p=0.95, df=1) # loi à H_0
 S_stat > qchisq(p = 0.95,df = 1)
-# On retrouve la stat de test. on ne peut pas rejeter H_0, i.e. on prend shape = 0
-p_val <- 1 - pchisq(S_stat,1) # on retrouve la p-valeur
+# We get the test statistic. We cannot reject H_0, i.e. we take shape = 0
+p_val <- 1 - pchisq(S_stat, 1) # We get the p-value
 
 
 par(mfrow=c(1,1))
@@ -144,35 +143,34 @@ inverse_function_gpd = function(x,tau){
 
 return_level_gpd = function(T,tau){
   u = 0.03
-  lambda = length(fitted_0$exceedances)/length(log_returns) # proportion de dépassements du seuil (p(u) dans le cours)
+  lambda = length(fitted_0$exceedances)/length(log_returns) # Proportion of exceedances of the threshold (denoted p(u) in the lectures)
   return(u+inverse_function_gpd(1-1/(T*lambda),tau))
 }
 
-# T: période de retour (en jours ouvrés)
+# T: return period (in business days)
 return_level_gpd(T = 5000, tau = as.numeric(fitted_0$estimate["scale"]))
-# Return level corresponding to a period of return of 20 years: 0.102
+# Return level corresponding to a return period of 20 years: 0.102
 # with the GEV, we found a return level of 0.129 approximately
 
-# Value of loss corresponding to a period of return of 10 years (=250*10=2500 working days approximately).
+# Value of loss corresponding to a return period of 10 years (=250*10=2500 working days approximately).
 return_level_gpd(T = 2500, tau = as.numeric(fitted_0$estimate["scale"]))
-# Return level corresponding to a period of return of 10 years: 0.093
+# Return level corresponding to a return period of 10 years: 0.093
 # with the GEV, we found a return level of 0.111 approximately
 
-# Indices des dépassements du niveau de retour 0.093
+# Indices of exceedances of the return level 0.093
 for (i in 1:length(log_returns)) {
   if (log_returns[i] > 0.102) {
     cat("Index:", i, "Value:", log_returns[i], "\n")
   }
 }
-# 3 dépassements de ce seuil en moins de 20 ans avec une GPD. Notons que 
-# ces dépassements sont assez resserrés entre eux (voir graphique tout en bas du code)
-
+# 3 exceedances of this threshold in less than 20 years with a GPD. Note that 
+# these exceedances are fairly close together (see the graph at the bottom of the code)
 
 # Period of return corresponding to a certain return level
 return_period_gpd <- function(y_p,tau){
   # y_p: return, tau: modified scale parameter
   u = 0.03 # u: threshold (fixed in the model)
-  lambda = length(fitted_0$exceedances)/length(log_returns) # proportion de dépassements du seuil (p(u) dans le cours)
+  lambda = length(fitted_0$exceedances)/length(log_returns) # Proportion of exceedances of the threshold (denoted p(u) in the lectures)
   return(1/lambda * exp((y_p-u)/tau))
 }
 
