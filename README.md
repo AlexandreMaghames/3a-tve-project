@@ -2,4 +2,7 @@
 # Extreme Value Theory Project
 ##### Financial Data
 
-#### Authors: Tom Brault & Alexandre Maghames
+
+## Contributors
+[MAGHAMES Alexandre](https://github.com/AlexandreMaghames)
+[BRAULT Tom](https://github.com/TomBrault)
