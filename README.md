@@ -1,2 +1,5 @@
 # 3a-tve-project
-Théorie des valeurs extrêmes
+# Extreme Value Theory Project
+##### Financial Data
+
+#### Authors: Tom Brault & Alexandre Maghames
